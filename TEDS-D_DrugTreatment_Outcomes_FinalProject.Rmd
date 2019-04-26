@@ -30,7 +30,7 @@ knitr::opts_chunk$set(comment = " ")
 
 ```{r eval=FALSE, include=FALSE}
 # Read in Data:
-drugdata <- read.csv("./TEDSD2006.csv", header=T, na.strings="-9")
+drugdata <- read.csv("../TEDSD2006.csv", header=T, na.strings="-9")
 ```
 
 ```{r eval=FALSE, include=FALSE}
@@ -103,12 +103,12 @@ sapply(drugdata.cleaned, function(x) table(x))
 
 ```{r,  eval=FALSE, include=FALSE}
 # Write Out Finalized Dataset:
-write.csv(x = drugdata.cleaned, file="./TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", row.names = FALSE)
+write.csv(x = drugdata.cleaned, file="./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", row.names = FALSE)
 ```
 
 ```{r, echo=F}
 # Read in Cleaned Data
-drug.data <- read.csv("./TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", header=T)
+drug.data <- read.csv("./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", header=T)
 
 #Change Variable Classes
 for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
