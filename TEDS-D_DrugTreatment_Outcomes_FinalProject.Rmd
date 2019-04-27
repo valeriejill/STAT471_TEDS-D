@@ -22,7 +22,7 @@ geometry: margin=1.9cm
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = F)
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(randomForest, tree, ISLR, rpart, rattle, pROC, partykit, ggplot2, glmnet, leaps, dplyr, rsample, tm, gbm, SnowballC, RColorBrewer, wordcloud, ranger, BiocManager, keras, neuralnet, xtable, tidyverse, mapproj, psych)
+pacman::p_load(randomForest, tree, ISLR, rpart, rattle, pROC, partykit, ggplot2, glmnet, leaps, dplyr, rsample, tm, gbm, SnowballC, RColorBrewer, wordcloud, ranger, BiocManager, keras, neuralnet, xtable, tidyverse, mapproj, psych, logisticPCA)
 knitr::opts_chunk$set(options(xtable.comment = FALSE))
 knitr::opts_chunk$set(comment = " ")
 ```
@@ -106,13 +106,16 @@ sapply(drugdata.cleaned, function(x) table(x))
 write.csv(x = drugdata.cleaned, file="./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", row.names = FALSE)
 ```
 
+Read in Cleaned Data:
 ```{r, echo=F}
 # Read in Cleaned Data
 drug.data <- read.csv("./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", header=T)
 
+drug.data <- drug.data %>% rename(TREATCOMPLETE = REASON)
+
 #Change Variable Classes
 for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
-             "LIVARAG", "PRIMINC", "REASON","DIVISION", "SERVSETD", "METHUSE", 
+             "LIVARAG", "PRIMINC", "TREATCOMPLETE","DIVISION", "SERVSETD", "METHUSE", 
              "PSOURCE", "SUB1", "ROUTE1", "FREQ1", "FRSTUSE1", "IDU", "ALCDRUG","PSYPROB")){
       drug.data[,var] <- as.factor(drug.data[,var])
 }
@@ -120,6 +123,7 @@ for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
 drug.data[ , grepl('FLG', names(drug.data)) ] <- lapply(drug.data[ , grepl('FLG' , names(drug.data)) ], factor)    
 ```
 
+Sample Info:
 ```{r sample characteristics, eval=FALSE, include=FALSE}
 #Demographics 
 table(drug.data$AGE)
@@ -140,21 +144,219 @@ table(drug.data$DAYWAIT)
 table(drug.data$LOS)
 ```
 
-```{r PCA, echo=F}
+PCA on Admission Drugs:
+```{r PCA Set Up, echo=F}
+# Logistic Principal Component Analysis for Dimensionality Reduction of Drug Admissions Data
+# Input: Drug Flags --> Flags indicate whether each drug was reported as in use at admission (0=no, 1=yes) for 18 drugs
 
-pca.data <- drug.data[, c(24:26)]
-for(var in c(1:3)){
-      pca.data[,var] <- as.numeric(pca.data[,var])
+# Step 1. Get drug flag data for input into logistic PCA
+pca.data <- drug.data[, c(24:41)]
+for(var in c(1:18)){
+      pca.data[,var] <- as.numeric(pca.data[,var]) 
 }
+pca.data$ALCFLG[pca.data$ALCFLG == 1] <- 0
+pca.data$ALCFLG[pca.data$ALCFLG == 2] <- 1
+pca.data$COKEFLG[pca.data$COKEFLG == 1] <- 0
+pca.data$COKEFLG[pca.data$COKEFLG == 2] <- 1
+pca.data$MARFLG[pca.data$MARFLG== 1] <- 0
+pca.data$MARFLG[pca.data$MARFLG == 2] <- 1
+pca.data$HERFLG[pca.data$HERFLG== 1] <- 0
+pca.data$HERFLG[pca.data$HERFLG == 2] <- 1
+pca.data$METHFLG[pca.data$METHFLG== 1] <- 0
+pca.data$METHFLG[pca.data$METHFLG == 2] <- 1
+pca.data$OPSYNFLG[pca.data$OPSYNFLG== 1] <- 0
+pca.data$OPSYNFLG[pca.data$OPSYNFLG == 2] <- 1
+pca.data$PCPFLG[pca.data$PCPFLG== 1] <- 0
+pca.data$PCPFLG[pca.data$PCPFLG == 2] <- 1
+pca.data$HALLFLG[pca.data$HALLFLG == 1] <- 0
+pca.data$HALLFLG[pca.data$HALLFLG == 2] <- 1
+pca.data$MTHAMFLG[pca.data$MTHAMFLG== 1] <- 0
+pca.data$MTHAMFLG[pca.data$MTHAMFLG == 2] <- 1
+pca.data$AMPHFLG[pca.data$AMPHFLG== 1] <- 0
+pca.data$AMPHFLG[pca.data$AMPHFLG == 2] <- 1
+pca.data$STIMFLG[pca.data$STIMFLG== 1] <- 0
+pca.data$STIMFLG[pca.data$STIMFLG == 2] <- 1
+pca.data$BENZFLG[pca.data$BENZFLG== 1] <- 0
+pca.data$BENZFLG[pca.data$BENZFLG == 2] <- 1
+pca.data$TRNQFLG[pca.data$TRNQFLG== 1] <- 0
+pca.data$TRNQFLG[pca.data$TRNQFLG == 2] <- 1
+pca.data$BARBFLG[pca.data$BARBFLG== 1] <- 0
+pca.data$BARBFLG[pca.data$BARBFLG == 2] <- 1
+pca.data$SEDHPFLG[pca.data$SEDHPFLG== 1] <- 0
+pca.data$SEDHPFLG[pca.data$SEDHPFLG == 2] <- 1
+pca.data$INHFLG[pca.data$INHFLG== 1] <- 0
+pca.data$INHFLG[pca.data$INHFLG == 2] <- 1
+pca.data$OTCFLG[pca.data$OTCFLG== 1] <- 0
+pca.data$OTCFLG[pca.data$OTCFLG == 2] <- 1
+pca.data$OTHERFLG[pca.data$OTHERFLG== 1] <- 0
+pca.data$OTHERFLG[pca.data$OTHERFLG == 2] <- 1
+```
 
-pca.data.scaled <- scale(pca.data, center = TRUE, scale=TRUE)
+```{r PCA Tune, eval=FALSE, include=FALSE}
+# Step 2. Tune Parameter K. Choose K=6!
+logpca_model_k1_m5 = logisticPCA(pca.data, k = 1, m = 5)
+logpca_model_k1_m5$prop_deviance_expl #27%
 
-pca.druguseflags <- prcomp(pca.data.scaled, scale.=TRUE) 
+logpca_model_k2_m5 = logisticPCA(pca.data, k = 2, m = 5)
+logpca_model_k2_m5$prop_deviance_expl #53%
 
-plot(summary(pca.druguseflags)$importance[2, ], pch=16, col="red",
-     ylab="PVE",
-     xlab="Number of PC's",
-     main="scree plot of PCA with all 10 scores ")
+logpca_model_k3_m5 = logisticPCA(pca.data, k = 3, m = 5)
+logpca_model_k3_m5$prop_deviance_expl #70%
+
+logpca_model_k4_m5 = logisticPCA(pca.data, k = 4, m = 5)
+logpca_model_k4_m5$prop_deviance_expl #79%
+
+logpca_model_k5_m5 = logisticPCA(pca.data, k = 5, m = 5)
+logpca_model_k5_m5$prop_deviance_expl #84%
+
+logpca_model_k6_m5 = logisticPCA(pca.data, k = 6, m = 5)
+logpca_model_k6_m5$prop_deviance_expl #88%
+
+logpca_model_k7_m5 = logisticPCA(pca.data, k = 7, m = 5)
+logpca_model_k7_m5$prop_deviance_expl #90%
+
+#Step 3. Tune Parameter M (if m not specified, best m is solved for at given K)
+logpca_final_model = logisticPCA(pca.data, k = 6, m=0)
+logpca_final_model$prop_deviance_expl #94%
+save(logpca_final_model, file="./logpca_final_model.Rdata")
+```
+
+```{r PCA Get PCs, echo=F}
+load("./logpca_final_model.Rdata")
+PCs <- data.frame(logpca_final_model$PCs)
+drug.data$PC1 <- PCs$X1
+drug.data$PC2 <- PCs$X2
+drug.data$PC3 <- PCs$X3
+drug.data$PC4 <- PCs$X4
+drug.data$PC5 <- PCs$X5
+drug.data$PC6 <- PCs$X6
+drug.data <- drug.data %>% select(-ends_with("FLG"))
+```
+
+Extract Training (N=40,000), Testing (N=20,000) and Validation (N=5,009) Datasets:
+```{r, echo=F}
+set.seed(256)
+
+N <- nrow(drug.data)
+index.train <- sample(N, 45000)
+drugdata.train <- drug.data[index.train,]
+drugdata.test <- drug.data[-index.train,]
+
+N <- nrow(drugdata.test)
+index.validation <- sample(N, 5009)
+drugdata.validation <- drugdata.test[index.validation,]
+drugdata.test <- drugdata.test[-index.validation,]
+```
+
+```{r, Neural Net Val, echo=F}
+# Step 1. Define the Model
+model <- keras_model_sequential() %>%
+  layer_dense(units = 20, activation = "relu", input_shape = c(30)) %>% 
+  layer_dense(units = 10, activation = "relu") %>%
+   layer_dense(units = 10, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+# Step 2. Compile the Model
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+#Step 3. Train the Model
+## Determine Epoch number using training and validation data sets
+
+### Format Data
+x_train <- as.matrix(drugdata.train[,-15])
+y_train <- as.matrix(drugdata.train[,15])
+x_validate <- as.matrix(drugdata.validation[,-15])
+y_validate <- as.matrix(drugdata.validation[,15])
+x_test <- as.matrix(drugdata.test[,-15])
+y_test <- as.matrix(drugdata.test[,15])
+
+### Train
+neuralnet.tune <- model %>% fit(x_train, 
+                                y_train,
+                                epochs = 30, 
+                                batch_size = 1000, 
+                                validation_data = list(x_validate, y_validate)
+                                )
 
 ```
+
+```{r, echo=F}
+# Step 4. Refit Model with Chosen Parameters
+
+
+model <- keras_model_sequential() %>%
+  layer_dense(units = 20, activation = "relu", input_shape = c(30)) %>% 
+  layer_dense(units = 10, activation = "relu") %>%
+   layer_dense(units = 10, activation = "relu") %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("accuracy")
+)
+
+x_train <- as.matrix(drugdata.train[,-15])
+y_train <- as.matrix(drugdata.train[,15])
+
+NN.allpredictors <- model %>% fit(x_train, y_train, epochs = 25, batch_size = 1000)
+
+# Step 5. Evaluate 
+## AUC and deviance
+results <- model %>% evaluate(x_test, y_test)
+results
+
+## MCE
+1-results$acc
+```
+
+Single Logistic Regression:
+```{r}
+for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
+             "LIVARAG", "PRIMINC", "TREATCOMPLETE","DIVISION", "SERVSETD", "METHUSE", 
+             "PSOURCE", "SUB1", "ROUTE1", "FREQ1", "FRSTUSE1", "IDU", "ALCDRUG","PSYPROB", "LOS", "PC1", "PC2", "PC3", "PC4", "PC5", "DAYWAIT")){
+  vardata <- drug.data[,var]
+  model <- summary(glm(drug.data$TREATCOMPLETE ~ vardata, family = binomial))
+      print(model)
+}
+
+```
+# 1. Introduction 
+
+## 1.1. Scope of the Problem
+## 1.2. Project Goals
+
+# 2. Methods
+
+## 2.1. The Treatment Episode Data Set- Discharges (TEDS-D) Data
+### Data Overview
+### Data Cleaning
+### Primary Outcome Measure
+### Treatment Success Predictors
+## 2.2. Study Sample Characteristics
+## 2.3. Statistics
+### Logistic Regression 
+#### Least Absolute Shrinkage and Selection Operator
+#### Elastic Net
+### Random Forest
+### Boosting Trees
+### Neural Nets
+
+# 3. Results
+
+## 3.1 Models
+### Logistic Regression 
+#### Least Absolute Shrinkage and Selection Operator
+#### Elastic Net
+### Random Forest
+### Boosting Trees
+### Neural Nets
+
+## 3.2. Model Comparisons
+
+# 4. Conclusions and Implications
 
