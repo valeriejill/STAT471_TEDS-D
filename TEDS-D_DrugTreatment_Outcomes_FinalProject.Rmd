@@ -5,7 +5,7 @@ date: "4/26/2019"
 output:
   pdf_document:
     toc: yes
-    toc_depth: '5'
+    toc_depth: '3'
     fig_caption: yes
     keep_tex: yes
   html_document:
@@ -22,7 +22,7 @@ geometry: margin=1.9cm
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = F)
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(randomForest, tree, ISLR, rpart, rattle, pROC, partykit, ggplot2, glmnet, leaps, dplyr, rsample, tm, gbm, SnowballC, RColorBrewer, wordcloud, ranger, BiocManager, keras, neuralnet, xtable, tidyverse, mapproj, psych, logisticPCA, JOUSBoost)
+pacman::p_load(randomForest, tree, ISLR, rpart, rattle, pROC, partykit, ggplot2, glmnet, leaps, dplyr, rsample, gbm, SnowballC, ranger, BiocManager, keras, neuralnet, xtable, tidyverse, mapproj, psych, caret, logisticPCA, JOUSBoost)
 knitr::opts_chunk$set(options(xtable.comment = FALSE))
 knitr::opts_chunk$set(comment = " ")
 ```
@@ -260,9 +260,32 @@ drugdata.test <- drugdata.test[-index.validation,]
 
 ____________________________________Statistics____________________________________
 
-Neural Net Val:
+GLM with All Predictors (Val):
+
+```{r GLM Full Model Val, include=FALSE}
+
+# Step 1. Fit a logistic regression with all possible predictors
+glm.allpredictors <- glm(TREATCOMPLETE ~ ., family=binomial, data=drugdata.train) 
+
+# Step 2. Get fitted values and classification for testing data
+glm.allpredictors.fittedprobabilities <- predict(glm.allpredictors, drugdata.test, type="response")  #Get probabilities
+glm.allpredictors.classify <- ifelse(glm.allpredictors.fittedprobabilities > 0.5, "1", "0") #Classify
+
+# Step 3. Evaluate
+
+#MCE
+testingerror.glm.allpredictors.MCE <- mean(drugdata.test$TREATCOMPLETE != glm.allpredictors.classify) # MCE= 0.3077 = FINAL TESTING ERROR FOR A LOGISTIC REGRESSION WITH ALL PREDICTORS
+
+#AUC
+glm.allpredictors.roc <- roc(drugdata.test$TREATCOMPLETE, glm.allpredictors.fittedprobabilities, plot=F) #AUC= 0.7561
+```
+
+Neural Net (Val):
+
 ```{r eval=FALSE, include=FALSE, Neural Net Val, echo=F}
+
 # Step 1. Define the Model
+
 model <- keras_model_sequential() %>%
   layer_dense(units = 20, activation = "relu", input_shape = c(30)) %>% 
   layer_dense(units = 10, activation = "relu") %>%
@@ -270,6 +293,7 @@ model <- keras_model_sequential() %>%
   layer_dense(units = 1, activation = "sigmoid")
 
 # Step 2. Compile the Model
+
 model %>% compile(
   optimizer = "rmsprop",
   loss = "binary_crossentropy",
@@ -300,6 +324,7 @@ neuralnet.tune <- model %>% fit(x_train,
 ```{r include=FALSE}
 # Step 4. Refit Model with Chosen Parameters
 
+set.seed(1)
 # FINAL MODEL
 model <- keras_model_sequential() %>%
   layer_dense(units = 20, activation = "relu", input_shape = c(30)) %>% 
@@ -321,21 +346,29 @@ y_test <- as.matrix(drugdata.test[,15])
 NN.allpredictors <- model %>% fit(x_train, y_train, epochs = 25, batch_size = 1000)
 
 # Step 5. Evaluate 
-## AUC and deviance
+
+## AUC 
 results <- model %>% evaluate(x_test, y_test)
 
 ## MCE
 MCE.NN <- 1-results$acc # MCE = 0.332 = FINAL TESTING ERROR FOR NEURAL NET
 
-#AUC Plot
-NN_predictions <- predict_classes(object = model,
+NN_predict_classes <- predict_classes(object = model,
                                     x = as.matrix(x_test)) %>%
   as.vector()
 
-NN.roc <- roc(drugdata.test$TREATCOMPLETE, pred_class, plot=F) #AUC = 0.6674
+testingerror.NN.MCE <- mean(y_test != NN_predict_classes) 
+
+
+#AUC Plot
+NN_predictions <- predict(object = model,
+                                    x = as.matrix(x_test)) %>%
+  as.vector()
+
+NN.roc <- roc(drugdata.test$TREATCOMPLETE, NN_predictions, plot=F) #AUC = 0.7447
 ```
 
-Boosting Val:
+Boosting Trees ADABOOST (Val):
 
 ```{r Boosting Val, eval=FALSE, include=FALSE}
 
@@ -346,7 +379,7 @@ y.train[y.train == 0] = -1
 
 x.test <- (drugdata.test[,-(15)])
 y.test <- as.numeric(drugdata.test[,15]) -1
-y.test[y.test == 0] = -1
+predictions
 
 # Step 2. Boost
 ## Tune Parameters
@@ -435,7 +468,7 @@ load("./final_boosting_model.Rdata")
 
 #MCE
 yhat_test_ada <- predict(boost.6.100, data.matrix(x.test))
-test_err.6.100 <- mean(y.test != yhat_test_ada) # MCE = 0.27945 = FINAL TESTING ERROR FOR BOOSTING TREES
+testingerror.boosting.6.100.MCE <- mean(y.test != yhat_test_ada) # MCE = 0.27945 = FINAL TESTING ERROR FOR BOOSTING TREES
 
 #AUC
 boosting.fitted <- predict(boost.6.100, data.matrix(drugdata.test), type="response") 
@@ -443,46 +476,77 @@ boosting.fitted[boosting.fitted == -1] = 0
 boosting.roc <- roc(drugdata.test$TREATCOMPLETE, boosting.fitted, plot=F) #AUC = 0.72
 ```
 
-GLM Val:
+Boosting Trees GBM (Val):
 
-```{r GLM Full Model Val, echo=F}
-# Step 1. Fit a logistic regression with all possible predictors
-modeltest <- glm(TREATCOMPLETE ~ ., family=binomial, data=drugdata.train) #Model with All Predictors
+```{r Boosting Val GBM, include=FALSE}
 
-# Step 2. Get fitted values and classification for testing data
-model1.fitted.test <- predict(modeltest, drugdata.test, type="response")  #Get probabilities
-logistic.predict.y <- ifelse(model1.fitted.test > 0.5, "1", "0") #Classify
+# Step 1. Format Data
+x.boost.train <- drugdata.train[,-15]
+y.boost.train <- make.names(drugdata.train[,15])
+x.boost.test <- drugdata.test[,-15]
+y.boost.test <- drugdata.test[,15]
+
+# Step 2: Tune Boosting Parameters
+fitControl <- trainControl(method = "cv",
+                           number = 5,
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+gbmGrid <-  expand.grid(interaction.depth = c(2, 4, 6, 8), 
+                        n.trees = (1:10)*100, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+GBM.boosting.model <- train(x.boost.train,y.boost.train, 
+                 method='gbm', 
+                  trControl=fitControl,
+                  tuneGrid = gbmGrid,
+                  metric = "ROC")
+
+print(GBM.boosting.model)
+save(GBM.boosting.model, file="./GBM_Boosting_Model.Rdata") #Save out final model
+load("./GBM_Boosting_Model.Rdata")
 
 # Step 3. Evaluate
+predictions <- predict(object=GBM.boosting.model, x.boost.test, type='prob')
+boosting.probabilities <- predictions[,2]
+boosting.classify <- ifelse(boosting.probabilities > 0.5, "1", "0")
+testingerror.boost.MCE <- mean(drugdata.test$TREATCOMPLETE != boosting.classify) #TESTING ERROR = 0.27055
+gbmboost.roc <- roc(drugdata.test$TREATCOMPLETE, boosting.probabilities, plot=F) #AUC = 0.8028
+importantpredictors <- summary(GBM.boosting.model)
+```
 
-#MCE
-logistic.MCE <- mean(drugdata.test$TREATCOMPLETE != logistic.predict.y) # MCE= 0.3077 = FINAL TESTING ERROR FOR A LOGISTIC REGRESSION WITH ALL PREDICTORS
+```{r echo=FALSE}
+# Boosting 15 MOST IMPORTANT PREDICTORS
+importantpredictors.df <- data.frame(importantpredictors)
+rownames(importantpredictors.df) <- c()
+importantpredictors.df <- importantpredictors.df %>% rename(Variable = var)
+importantpredictors.df <- importantpredictors.df %>% rename(Relative_Influence = rel.inf)
+importantpredictors.df[1:15,]
 
-#AUC
-glm.roc <- roc(drugdata.test$TREATCOMPLETE, as.numeric(logistic.predict.y), plot=F) #AUC= 0.6917
+# BOOSTING PREDICTOR RELATIVE INFLUENCE GRAPH
+plot(varImp(GBM.boosting.model,scale=F, xlab="Variable Importance"))
 ```
 
 Compare Val Models (GLM, NN, Boosting) with AUC CURVES:
 
 ```{r PLOT ROCs,fig.height=5, fig.width=9, echo=F}
 par(mfrow=c(1,1))
-plot(1-NN.roc$specificities, NN.roc$sensitivities, col="royalblue3", pch=16, cex=0.9, xlab= "False Positives", ylab="Sensitivities", font.lab=2, main="Model Comparisons: ROC Curves", font.main=2,
-text(.75, .2, paste("\nModel 1: Boosting AUC=", round(pROC::auc(boosting.roc),2),
-                "\nModel 2: GLM AUC=",round(pROC::auc(glm.roc),2), 
-                "\nModel 3: Neural Net AUC=",round(pROC::auc(NN.roc),2))))
+plot(1-NN.roc$specificities, NN.roc$sensitivities, col="steelblue3", pch=16, cex=0.4, xlab= "False Positives", ylab="Sensitivities", font.lab=2, main="Model Comparisons: ROC Curves", font.main=2,
+text(.75, .2, paste("\nModel 1: Boosting AUC=", round(pROC::auc(gbmboost.roc),3),
+                "\nModel 2: GLM AUC=",round(pROC::auc(glm.allpredictors.roc),3), 
+                "\nModel 3: Neural Net AUC=",round(pROC::auc(NN.roc),3))))
 
-points(1-glm.roc$specificities, glm.roc$sensitivities, col="mediumpurple3", pch=16, cex=0.8)
+points(1-glm.allpredictors.roc$specificities, glm.allpredictors.roc$sensitivities, col="mediumpurple3", pch=16, cex=0.4)
 
 
-points(1-boosting.roc$specificities, boosting.roc$sensitivities, col="red3", pch=16, cex=0.4)
+points(1-gbmboost.roc$specificities, gbmboost.roc$sensitivities, col="springgreen4", pch=16, cex=0.4)
 
 
 legend(0, 1, legend=c("Model 1", "Model 2", "Model 3"),
-       col=c("red3", "mediumpurple3", "royalblue3"), lty=1:1, cex=0.8)
+       col=c("springgreen4", "mediumpurple3", "steelblue3"), lty=1:1, cex=0.8)
 
-lines(1-boosting.roc$specificities, boosting.roc$sensitivities, lwd=1.5, col="red3")
-lines(1-glm.roc$specificities, glm.roc$sensitivities, lwd=1.5, col="mediumpurple3")
-lines(1-NN.roc$specificities, NN.roc$sensitivities, lwd=1.5, col="royalblue3")
+lines(1-gbmboost.roc$specificities, gbmboost.roc$sensitivities, lwd=2, col="springgreen4")
+lines(1-glm.allpredictors.roc$specificities, glm.allpredictors.roc$sensitivities, lwd=2, col="mediumpurple3")
+lines(1-NN.roc$specificities, NN.roc$sensitivities, lwd=2, col="steelblue3")
 
 ```
 
@@ -496,7 +560,6 @@ lines(1-NN.roc$specificities, NN.roc$sensitivities, lwd=1.5, col="royalblue3")
 ## 2.1. The Treatment Episode Data Set- Discharges (TEDS-D) Data
 ### Data Overview
 ### Data Cleaning
-### Primary Outcome Measure
 ### Treatment Success Predictors
 ## 2.2. Study Sample Characteristics
 ## 2.3. Statistics
