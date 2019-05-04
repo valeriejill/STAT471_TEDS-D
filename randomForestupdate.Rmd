@@ -1,0 +1,415 @@
+---
+title: "fuckrandomforest"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F)
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(randomForest, tree, car, ISLR, rpart, corrplot, rattle, pROC, partykit, ggplot2, glmnet, leaps, dplyr, rsample, gbm, SnowballC, ranger, BiocManager, keras, neuralnet, tensorflow, xtable, tidyverse, mapproj, psych, caret, logisticPCA, JOUSBoost)
+knitr::opts_chunk$set(options(xtable.comment = FALSE))
+knitr::opts_chunk$set(comment = " ")
+```
+
+```{r eval=FALSE, include=FALSE}
+# Read in Data:
+drugdata <- read.csv("../TEDSD2006.csv", header=T, na.strings="-9")
+```
+
+```{r eval=FALSE, include=FALSE}
+# Remove 24-Hour Detoxes and Ambulatory Detox:
+drugdata.cleaned <- drugdata %>% filter(SERVSETD == "4" | SERVSETD == "5" | SERVSETD == "6" | SERVSETD == "7")
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Remove Participants with Prior Treatment:
+drugdata.cleaned <- drugdata.cleaned %>% filter(NOPRIOR == 0)
+``` 
+
+```{r,  eval=FALSE, include=FALSE}
+# Remove Columns of Non-Interest, Low Interpretability or Redundancy:
+drugdata.cleaned <- drugdata.cleaned %>% dplyr::select(-FREQ2, -FREQ3, -FRSTUSE2, -FRSTUSE3, -ROUTE2, -ROUTE3, -STFIPS, -SUB2, -SUB3, -CBSA, -PMSA, -DSMCRIT, -CASEID, -DISYR, -REGION, - NOPRIOR, -ARRESTS)
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Look at NAs per Column:
+sapply(drugdata.cleaned, function(x) sum(is.na(x)))
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Remove Columns with too many NAs:
+# DETNLF = 75% NAs
+# PREG = 67%
+# DETCRIM = 70%
+# HLTHINS = 45%
+# PRIMPAY = 52%
+drugdata.cleaned <- drugdata.cleaned %>% dplyr::select(-DETNLF, -PREG, -DETCRIM, -PRIMPAY, -HLTHINS)
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Remove Rows with NAs:
+drugdata.cleaned <- na.omit(drugdata.cleaned)
+sapply(drugdata.cleaned, function(x) sum(is.na(x))) #check
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Look at Variable Class:
+for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
+             "LIVARAG", "PRIMINC", "DIVISION", "SERVSETD", "METHUSE", 
+             "PSOURCE", "SUB1", "ROUTE1", "FREQ1", "FRSTUSE1", "IDU", "ALCDRUG","PSYPROB")){
+      drugdata.cleaned[,var] <- as.factor(drugdata.cleaned[,var])
+}
+
+drugdata.cleaned[ , grepl('FLG', names(drugdata.cleaned)) ] <- lapply(drugdata.cleaned[ , grepl('FLG' , names(drugdata.cleaned)) ], factor)    
+sapply(drugdata.cleaned, function(x) class(x))
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# RECODE VARIABLE OF INTEREST:
+for(num in c(2:8)){
+drugdata.cleaned$REASON[drugdata.cleaned$REASON == num] <- 0
+}
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Look at Within-Variable Variability:
+sapply(drugdata.cleaned, function(x) table(x))
+```
+
+```{r,  eval=FALSE, include=FALSE}
+# Write Out Finalized Dataset:
+write.csv(x = drugdata.cleaned, file="./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", row.names = FALSE)
+```
+
+```{r include=FALSE}
+# Read in Cleaned Data
+drug.data <- read.csv("./Data/TEDS-D_DrugTreatment_Outcomes_Final.csv", sep=",", header=T)
+
+drug.data <- drug.data %>% rename(TREATCOMPLETE = REASON)
+
+#Change Variable Classes
+for(var in c("AGE", "GENDER","RACE","ETHNIC","MARSTAT", "EMPLOY", "EDUC","VET",
+             "LIVARAG", "PRIMINC", "TREATCOMPLETE","DIVISION", "SERVSETD", "METHUSE", 
+             "PSOURCE", "SUB1", "ROUTE1", "FREQ1", "FRSTUSE1", "IDU", "ALCDRUG","PSYPROB")){
+      drug.data[,var] <- as.factor(drug.data[,var])
+}
+
+drug.data[ , grepl('FLG', names(drug.data)) ] <- lapply(drug.data[ , grepl('FLG' , names(drug.data)) ], factor)    
+```
+
+```{r sample characteristics, eval=FALSE, include=FALSE}
+#Demographics 
+table(drug.data$AGE)
+table(drug.data$GENDER)
+table(drug.data$RACE)
+table(drug.data$MARSTAT)
+table(drug.data$EDUC)
+table(drug.data$EMPLOY)
+
+#Drug Use Information
+table(drug.data$SUB1)
+table(drug.data$FRSTUSE1)
+table(drug.data$ALCDRUG)
+
+#Treatment Information
+table(drug.data$SERVSETD)
+table(drug.data$DAYWAIT)
+table(drug.data$LOS)
+```
+
+```{r PCA Set Up, include=FALSE}
+# Logistic Principal Component Analysis for Dimensionality Reduction of Drug Admissions Data
+# Input: Drug Flags --> Flags indicate whether each drug was reported as in use at admission (0=no, 1=yes) for 18 drugs
+
+# Step 1. Get drug flag data for input into logistic PCA
+pca.data <- drug.data[, c(24:41)]
+for(var in c(1:18)){
+      pca.data[,var] <- as.numeric(pca.data[,var]) 
+}
+pca.data$ALCFLG[pca.data$ALCFLG == 1] <- 0
+pca.data$ALCFLG[pca.data$ALCFLG == 2] <- 1
+pca.data$COKEFLG[pca.data$COKEFLG == 1] <- 0
+pca.data$COKEFLG[pca.data$COKEFLG == 2] <- 1
+pca.data$MARFLG[pca.data$MARFLG== 1] <- 0
+pca.data$MARFLG[pca.data$MARFLG == 2] <- 1
+pca.data$HERFLG[pca.data$HERFLG== 1] <- 0
+pca.data$HERFLG[pca.data$HERFLG == 2] <- 1
+pca.data$METHFLG[pca.data$METHFLG== 1] <- 0
+pca.data$METHFLG[pca.data$METHFLG == 2] <- 1
+pca.data$OPSYNFLG[pca.data$OPSYNFLG== 1] <- 0
+pca.data$OPSYNFLG[pca.data$OPSYNFLG == 2] <- 1
+pca.data$PCPFLG[pca.data$PCPFLG== 1] <- 0
+pca.data$PCPFLG[pca.data$PCPFLG == 2] <- 1
+pca.data$HALLFLG[pca.data$HALLFLG == 1] <- 0
+pca.data$HALLFLG[pca.data$HALLFLG == 2] <- 1
+pca.data$MTHAMFLG[pca.data$MTHAMFLG== 1] <- 0
+pca.data$MTHAMFLG[pca.data$MTHAMFLG == 2] <- 1
+pca.data$AMPHFLG[pca.data$AMPHFLG== 1] <- 0
+pca.data$AMPHFLG[pca.data$AMPHFLG == 2] <- 1
+pca.data$STIMFLG[pca.data$STIMFLG== 1] <- 0
+pca.data$STIMFLG[pca.data$STIMFLG == 2] <- 1
+pca.data$BENZFLG[pca.data$BENZFLG== 1] <- 0
+pca.data$BENZFLG[pca.data$BENZFLG == 2] <- 1
+pca.data$TRNQFLG[pca.data$TRNQFLG== 1] <- 0
+pca.data$TRNQFLG[pca.data$TRNQFLG == 2] <- 1
+pca.data$BARBFLG[pca.data$BARBFLG== 1] <- 0
+pca.data$BARBFLG[pca.data$BARBFLG == 2] <- 1
+pca.data$SEDHPFLG[pca.data$SEDHPFLG== 1] <- 0
+pca.data$SEDHPFLG[pca.data$SEDHPFLG == 2] <- 1
+pca.data$INHFLG[pca.data$INHFLG== 1] <- 0
+pca.data$INHFLG[pca.data$INHFLG == 2] <- 1
+pca.data$OTCFLG[pca.data$OTCFLG== 1] <- 0
+pca.data$OTCFLG[pca.data$OTCFLG == 2] <- 1
+pca.data$OTHERFLG[pca.data$OTHERFLG== 1] <- 0
+pca.data$OTHERFLG[pca.data$OTHERFLG == 2] <- 1
+```
+
+```{r PCA Tune, eval=FALSE, include=FALSE}
+
+# Step 2. Tune Parameter K. Choose K=6!
+logpca_model_k1_m5 = logisticPCA(pca.data, k = 1, m = 5)
+logpca_model_k1_m5$prop_deviance_expl #27%
+
+logpca_model_k2_m5 = logisticPCA(pca.data, k = 2, m = 5)
+logpca_model_k2_m5$prop_deviance_expl #53%
+
+logpca_model_k3_m5 = logisticPCA(pca.data, k = 3, m = 5)
+logpca_model_k3_m5$prop_deviance_expl #70%
+
+logpca_model_k4_m5 = logisticPCA(pca.data, k = 4, m = 5)
+logpca_model_k4_m5$prop_deviance_expl #79%
+
+logpca_model_k5_m5 = logisticPCA(pca.data, k = 5, m = 5)
+logpca_model_k5_m5$prop_deviance_expl #84%
+
+logpca_model_k6_m5 = logisticPCA(pca.data, k = 6, m = 5)
+logpca_model_k6_m5$prop_deviance_expl #88%
+
+logpca_model_k7_m5 = logisticPCA(pca.data, k = 7, m = 5)
+logpca_model_k7_m5$prop_deviance_expl #90%
+
+#Step 3. Tune Parameter M (if m not specified, best m is solved for at given K)
+logpca_final_model = logisticPCA(pca.data, k = 6, m=0)
+logpca_final_model$prop_deviance_expl #94%
+save(logpca_final_model, file="./logpca_final_model.Rdata") #Save out results of PCA
+```
+
+```{r PCA Get PCs, include=FALSE}
+load("./logpca_final_model.Rdata") #Read in results of PCA
+
+# Step 4. Add PC Scores to drug data 
+PCs <- data.frame(logpca_final_model$PCs) 
+drug.data$PC1 <- PCs$X1
+drug.data$PC2 <- PCs$X2
+drug.data$PC3 <- PCs$X3
+drug.data$PC4 <- PCs$X4
+drug.data$PC5 <- PCs$X5
+drug.data$PC6 <- PCs$X6
+drug.data <- drug.data %>% dplyr::select(-ends_with("FLG")) 
+
+save(drug.data, file="./final.drugdata.Rdata") # Save out final cleaned data with removed FLGs
+```
+
+```{r include=FALSE}
+#Extract training and testing data
+set.seed(256)
+
+N <- nrow(drug.data)
+index.train <- sample(N, 45000)
+drugdata.train <- drug.data[index.train,]
+drugdata.test <- drug.data[-index.train,]
+
+N <- nrow(drugdata.test)
+index.validation <- sample(N, 5009)
+drugdata.validation <- drugdata.test[index.validation,]
+drugdata.test <- drugdata.test[-index.validation,]
+```
+
+```{r, include = FALSE}
+# Use elastic net to find important variables (training data)
+# Step 1. Format data
+y <- drugdata.train[, 15]
+x <- model.matrix(TREATCOMPLETE~.,data=drugdata.train)[,-15]
+
+set.seed(10)
+
+fit.cv <- cv.glmnet(x, y, alpha=0.99, family="binomial", nfolds = 10, type.measure = "deviance")  
+plot(fit.cv)
+
+fit.MCE.cv <- cv.glmnet(x, y, alpha=0.99, family="binomial", nfolds = 10, type.measure = "class")  
+plot(fit.MCE.cv)
+
+fit.auc.cv <- cv.glmnet(x, y, alpha=0.99, family="binomial", nfolds = 10, type.measure = "auc")  
+plot(fit.auc.cv)
+
+# We could chose lambda=fit1.cv$lambda.1se, lambda.min or any values of the lambda near the min points.
+
+# Step 2. Look at lambda.min for minimizing deviance (because deviance is most important when considering classification/prediction):
+coef.min <-coef(fit.cv, s="lambda.min") 
+coef.min <- coef.min[which(coef.min !=0), ]
+rownames(as.matrix(coef.min)) # AGE, GENDER, RACE, ETHNIC, MARSTAT, EDUC, EMPLOY, VET, LIVARAG, PRIMINC, DIVISION, SERVSETD, METHUSE, DAYWAIT, LOS, PSOURCE, SUB1, ROUTE1, FREQ1, FRSTUSE1, NUMSUBS, IDU, ALCDRUG, PSYPROB, PC1, PC2, PC3, PC5, PC6 (29 vars)
+
+# Step 3. Look at lambda.1se for minimizing deviance:
+coef.1se <- coef(fit.cv, s="lambda.1se")  
+coef.1se <- coef.1se[which(coef.1se !=0),] 
+rownames(as.matrix(coef.1se)) # AGE, GENDER, RACE, ETHNIC, MARSTAT, EDUC, EMPLOY, VET, LIVARAG, PRIMINC, DIVISION, SERVSETD, METHUSE, DAYWAIT, LOS, PSOURCE, SUB1, ROUTE1, FREQ1, FRSTUSE1, NUMSUBS, IDU, ALCDRUG, PSYPROB, PC1, PC2, PC3, PC6 (28 vars)
+
+# Step 4. Re-fit logistic regression using `glm()` with the variables obtained from LASSO above.
+
+# Penalized regression model #1 (lambda.min)
+P.Regression.1 <- glm(TREATCOMPLETE~AGE + GENDER + RACE + ETHNIC + MARSTAT + EDUC + EMPLOY + VET + LIVARAG + PRIMINC + DIVISION + SERVSETD + METHUSE + DAYWAIT + LOS + PSOURCE + SUB1 + ROUTE1 + FREQ1 + FRSTUSE1 + NUMSUBS + ALCDRUG + IDU + PSYPROB + PC1 + PC2 + PC3 + PC5 + PC6, family=binomial, data=drugdata.train)
+Anova(P.Regression.1)
+
+# Penalized regression model #2 (lambda.1se)
+P.Regression.2 <- glm(TREATCOMPLETE~AGE + GENDER + RACE + ETHNIC + MARSTAT + EDUC + EMPLOY + VET + LIVARAG + PRIMINC + DIVISION + SERVSETD + METHUSE + DAYWAIT + LOS + PSOURCE + SUB1 + ROUTE1 + FREQ1 + FRSTUSE1 + NUMSUBS + ALCDRUG + IDU + PSYPROB + PC1 + PC2 + PC3 + PC6, family=binomial, data=drugdata.train)
+Anova(P.Regression.2)
+
+# Step 5. Get fitted values and classification for testing data
+P.Regression.1.fittedprobabilities <- predict(P.Regression.1, drugdata.test, type="response")  #Get probabilities lambda.min
+P.Regression.1.classify <- ifelse(P.Regression.1.fittedprobabilities > 0.5, "1", "0") #Classify
+
+P.Regression.2.fittedprobabilities <- predict(P.Regression.2, drugdata.test, type="response")  #Get probabilities lambda.1se
+P.Regression.2.classify <- ifelse(P.Regression.2.fittedprobabilities > 0.5, "1", "0") #Classify
+
+# Step 6. Evaulate the lambda.min and lambda.1se models
+testingerror.P.Regression.1.MCE <- mean(drugdata.test$TREATCOMPLETE != P.Regression.1.classify) # MCE= 0.3071 
+P.Regression.1.roc <- roc(drugdata.test$TREATCOMPLETE, P.Regression.1.fittedprobabilities, plot=F) #AUC= 0.7562
+
+testingerror.P.Regression.2.MCE <- mean(drugdata.test$TREATCOMPLETE != P.Regression.2.classify) # MCE= 0.3076 
+P.Regression.2.roc <- roc(drugdata.test$TREATCOMPLETE, P.Regression.2.fittedprobabilities, plot=F) #AUC= 0.7562
+
+# lambda.1se is slightly better, let's save this out:
+save(P.Regression.2, file="./penalizedRegressionModel.Rdata") # Save out penalized regression model
+```
+
+```{r, include = FALSE}
+# Tuning mtry
+set.seed(332)
+
+rf.error.p <- 1:30  # Set up a vector of length 21
+for (p in 1:30)  # Repeat the following code inside { } 21 times
+{
+  fit.rf.tuning <- randomForest(TREATCOMPLETE~., drugdata.train, mtry=p, ntree=250)
+  rf.error.p[p] <- fit.rf.tuning$err.rate[250]  # collecting OOB MSE based on 250 trees
+  print(rf.error.p[p])
+}
+rf.error.p
+
+# Plotting the results:
+plot(1:30, rf.error.p, pch=16,
+     xlab="mtry",
+     ylab="OOB mse of mtry")
+lines(1:30, rf.error.p)
+
+# Fit model with mtry = 5
+fit.rf.mtrytune<- randomForest(TREATCOMPLETE ~ ., data = drugdata.train, mtry = 5, importance = T, ntree=250)
+
+# How well does this mtry predict?
+fit.rf.mtrytune.pred <- predict(fit.rf.mtrytune, drugdata.test, type="prob")  
+fit.rf.mtrytune.pred.y <- predict(fit.rf.mtrytune, drugdata.test, type="response")
+fit.rf.mtrytune.train.err <- mean(drugdata.test$TREATCOMPLETE != fit.rf.mtrytune.pred.y) # 0.26655
+
+# Tuning ntree parameter:
+fit.rf.ntree<- randomForest(TREATCOMPLETE ~ ., data = drugdata.train, mtry = 5, importance = T, ntree=500)
+plot(fit.rf.ntree)
+
+# Growing the forest with optimized parameters
+fit.rf <- randomForest(TREATCOMPLETE ~ ., data = drugdata.train, mtry = 5, importance = T, ntree=400)
+
+#save(fit.rf, file="./randomForest_model.Rdata") # Save out final model
+save(fit.rf, file="./randomForest_model_new.Rdata") # Save out final model
+
+# Can better look at model perfomance in testing data
+# Prediction using testing data
+fit.rf.test.pred <- predict(fit.rf, newdata=drugdata.test, type="prob")  # Output the prob of "0" and "1"
+fit.rf.test.pred.y <- predict(fit.rf, newdata=drugdata.test, type="response")
+fit.rf.train.err <- mean(drugdata.test$TREATCOMPLETE != fit.rf.test.pred.y) # 0.26445
+
+fit.rf.test.roc <- roc(drugdata.test$TREATCOMPLETE, fit.rf.test.pred[,2], plot=TRUE, col="red") 
+pROC::auc(fit.rf.test.roc) # 0.8118 (!!!)
+
+# Confusion matrix
+confusionMatrix(fit.rf.test.pred.y, drugdata.test$TREATCOMPLETE, positive = "1") # Switching the positive class so that 1 (treatment completion) is positive
+
+# Sensitivity: 77%
+# Specificity: 71%
+# Positive Pred: 70%
+# Negative Pred: 78%
+```
+
+One approach to using `randomForest` to get measures of predictor importance is to record the decrease in the fitting measure (e.g. Gini index; mean squared error) each time a given variable is used to define a split. In this sense, the sum of these reductions for a given tree becomes a measure of the importance of that variable when that tree is grown. In the context of random forest, this measure of variable importance can be averaged over the set of trees. 
+
+In the plots below, reduction in prediction accuracy is shown on the horizontal axis. As such, we can see reductions in prediction accuracy for successful treatment completion (left) and non-successful treatment completion (right) when each predictor is in turn randomly shuffled.
+
+Specifically, we note that factors like `SERVSETD` (service setting at discharge), `PSOURCE` (principal source of referral), `FREQ1` (frequency of use), `PSYCPROB` (psychiatric problems/symptoms/diagnoses), `EMPLOY` (employment status at time of admission), and `PRIMINC` (source of income/support) are most predictive of successful treatment completion. On the other hand, factors such as `SUB1` (substance problem code),`AGE` (age at time of admission), `FRSTUSE1` (age at first substance use), and `DAYWAIT` (days spent waiting for admission) were most predictive of cases where treatment was not completed. 
+
+Critically, two factors `LOS` (length of stay) and `DIVISION` (census division/geographic location) were most predictive of both successful and non-successful treatment completion.
+
+```{r, echo = FALSE}
+
+load("./randomForest_model_new.Rdata")
+
+# Variable importance plots
+par(mfrow=c(1,2))
+varImpPlot(fit.rf, type=1, scale=F, class="1",
+           main = "Importance Plot for Treatment Completion", col = "blue", cex=.65, pch=19) 
+varImpPlot(fit.rf, type=1, scale=F, class="0",
+           main = "Importance Plot for Treatment Non-Completion", col = "blue", cex=.65, pch=19) 
+```
+
+```{r, echo = FALSE}
+# Partial dependence plots
+
+# LOS:
+partimp1 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=LOS, rug=T, which.class="1")
+
+scatter.smooth(partimp1$x, partimp1$y, span=1/3, xlab= "Length of Stay", ylab= "Log Odds of Completion", 
+               main = "Partial Dependence Plot for LOS on Treatment Completion", col = "blue", pch=19)
+
+# Categorical variables:
+
+par(mfrow=c(2,1))
+
+partimp2 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=DIVISION, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for DIVISION on Treatment Completion", 
+                        xlab= "Census Division", ylab= "Log Odds Completion", ylim = c(-0.3, 0.2))
+
+partimp3 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=SUB1, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for SUB1 on Treatment Completion", 
+                        xlab= "Substance Problem Code",ylab= "Log Odds Completion", ylim = c(-0.1, 0.2))
+
+par(mfrow=c(2,1))
+
+partimp4 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=SERVSETD, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for SERVSETD on Treatment Completion", 
+                        xlab= "Service at Discharge", ylab= "Log Odds Completion", ylim = c(-0.3, 0.1))
+
+partimp5 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=PSOURCE, rug=T, which.class="1",  
+                        main = "Partial Dependence Plot for PSOURCE on Treatment Completion",
+                        xlab= "Referral Source", ylab= "Log Odds Completion", ylim = c(-0.2, 0.1))
+
+par(mfrow=c(3,1))
+
+partimp6 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=FREQ1, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for FREQ1 on Treatment Completion", 
+                        xlab= "Frequency of Use at Admission", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2))
+
+partimp7 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=EMPLOY, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for EMPLOY on Treatment Completion", 
+                        xlab= "Employment Status", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2))
+
+partimp7 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=PRIMINC, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for PRIMINC on Treatment Completion", 
+                        xlab= "Primary Insurance", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2))
+
+par(mfrow=c(2,1))
+
+partimp8 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=FRSTUSE1, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for FRSTUSE1 on Treatment Completion",
+                        xlab= "Age at First Use", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3))
+
+partimp9 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=AGE, rug=T, which.class="1", 
+                        main = "Partial Dependence Plot for AGE on Treatment Completion",
+                        xlab= "Age at Admission", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3))
+```
