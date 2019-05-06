@@ -1,5 +1,5 @@
 ---
-title: "TEDS-D Data Exploration and Cleaning"
+title: "Predicting Substance Use Disorder Treatment Completion"
 author: "Jared Colina, Kara McGaughey & Valerie Sydnor"
 date: "05/05/2019"
 output:
@@ -31,26 +31,19 @@ knitr::opts_chunk$set(comment = " ")
 
 ## 1.1. Scope of the Problem
 
-A substance use disorder (SUD) is a medical, brain-based illness characterized by clinically significant impairments in health, social function, and voluntary control over substance use. SUDs range in severity, duration, and complexity. However, despite inherent heterogeneity in symptomology and symptom severity, SUDs are incredibly wide-spread. In 2015, 20.8 million people aged 12 or older met official diagnostic criteria for a substance use disorder (Medina, 2016). Of these people, only about 1 in 10 received any type of specialty treatment. 
+A substance use disorder (SUD) is a medical, brain-based illness characterized by clinically significant impairments in health, social function, and voluntary control over substance use. SUDs range in severity, duration, and complexity. In addition to this inherent heterogeneity in symptomology and symptom severity, SUDs are incredibly wide-spread. In 2015, 20.8 million people aged 12 or older met official diagnostic criteria for a substance use disorder (Medina, 2016). Of these people, only about 1 in 10 received any type of specialty treatment. On top of this, approximately one-third of people who enroll in substance use treatment facilities drop out or are prematurely terminated by the facility (SAMHSA, 2012).
 
+Critically, while treatment completion is associated with higher rates of drug use termination, non-completion is intimately linked with criminal involvement, relapse/readmission, illness chronicity, and even death. **As such, not only is successful treatment completion is a clinical utile outcome measure, but accounting for and acting on treatment completion rates should be a public health priority.**
 
+Successful treatment completion rates can also be used to assess the functionality and efficacy of national and state-level healthcare systems. As such, identifying key predictors of successful treatment (or treatment completion) can serve not only to maximize positive outcomes based on individual patient characteristics, but also to discover disparities in treatment access and -- ultimately -- inform policy to increase treatment success and reduce unmet treatment needs. Specifically, if we are able to a priori identify patients unlikely to complete traditional treatment trajectories, we will be better able to enroll these individuals in evidence-based interventions to diversify treatment opportunities and increase retention rates among this would-be treatment refractory population.
 
-
-In addition to the vast majority of individuals with SU problems not receiving any treatment (Ali et al., 2015), approximately one-third of SU treatment episodes nationally end in drop out or are pre-maturely terminated by the facility (SAMHSA, 2012).
-
-Successful treatment completion is a clinically utile outcome measure predicting longer-term outcomes such as criminal involvement and treatment readmission (Evans et al., 2009, Garnick et al., 2009, Zarkin et al., 2002). Successful treatment completion rates can be used to assess national and state-level systems (Alterman et al., 2001, Garnick et al., 2009).
-
-Referral source as a pathway to treatment is a strong indicator of successful treatment completion (Arndt et al., 2013, Atkinson et al., 2003). For example, clients referred through employers and criminal justice pathways are associated with the highest percentage of successful treatment completion, while self-referrals and healthcare referrals are associated with the lowest percentage of successful treatment completion (Arndt et al., 2013).
-
-In addition, studies show that every dollar spent on substance use disorder treatment saves 4 dollars in health care costs and 7 dollars in criminal justice costs.
-
-However, a comprehensive examination of factors that are associated with treatment completion in residential settings using large discharge data has not been undertaken.
+In order to make this leap towards individualized, precision medicine and matching patients to the most effective treatments based on their characteristics, we must first use these characteristics to predict who will succeed at a given treatment. 
 
 ## 1.2. Project Goals
 
-The overarching aim of this project is to leverage advanced statistical techniques -- logistic regression, penalized regression, boosting, random forest, and deep learning (i.e., neural networks) -- to predict successful substance use disorder treatment. 
+As such, the overarching aim of this project is to leverage advanced statistical techniques -- logistic regression, penalized regression, random forest, boosting, and deep learning (i.e., neural networks) -- to identify factors most predictive of successful substance use disorder treatment outcomes. 
 
-By identifying factors most related to and predictive of successful treatment, our model and our analysis will have the potential to... 
+To accomplish this, we make use of a large, publicly-available  dataset commonly used in the SUD field to evaluate which method works best at predicting successful treatment using real life patient information.
 
 # 2. Methods and Model Results
 
@@ -65,19 +58,20 @@ drugdata <- read.csv("./TEDSD2006.csv", header=T, na.strings="-9")
 
 The Treatment Episode Data Set—Discharges (TEDS-D) is a public dataset made available by the US Department of Health and Human Services that contains patient-level information for individuals treated for substance use disorders in the United States during the year 2006.  The TEDS-D data includes variables related to patient demographics (e.g., age, sex, race), geographics (e.g. census division), and psychographics (e.g. employment); patient drug use (e.g. primary substance abused, age of first use, frequency of use); SUD treatment program (e.g. rehabilitation center type, length of treatment stay); and SUD risk factors (e.g. comorbid psychiatric diagnoses, veteran status, living situation). 
 
-The binary outcome variable of interest included in the TEDS-D dataset and used as the dependent variable in all statistical models developed here is **Treatment Completed** (yes=1 or no=0). A **completed treatment** indicates that all parts of the treatment plan were completed prior to patient discharge from the treatment program. On the other hand, **treatment non-completion** denotes that the patient left or was discharged prior to treatment completion; the most frequent causes of treatment non-completion included a patient leaving the program early against professional advice, program termination by the treatment facility due to patient non-compliance, or patient transfer to another facility. 
+The binary outcome variable of interest included in the TEDS-D dataset and used as the dependent variable in all statistical models developed here is **Treatment Completed** (yes=1 or no=0). A **completed treatment** indicates that all parts of the treatment plan were completed prior to patient discharge from the treatment program. On the other hand, **treatment non-completion** denotes that the patient left or was discharged prior to treatment completion. The most frequent causes of treatment non-completion included a patient leaving the program early against professional advice, program termination by the treatment facility due to patient non-compliance, or patient transfer to another facility. 
 
 ### Data Cleaning: Selection of Predictor Variables and Discharge Entries
 
-The original TEDS-D dataset included 65 variables and 1,048,575 observations. Critically, however, each observation included in this original dataset represented *one hospital discharge*, rather than *one unique patient*. In order to avoid introducing bias into our predictive models via the presence of multiple entries for the same patient, we removed all observations for which the number of prior treatment episodes in a drug or alcohol program was greater than 0. This ensured that each discharge entry and all relevant variables were indeed obtained from a unique patient. We additionally removed all entries wherein the patient was discharged from a 24 hour detoxification service, as detoxification and treatment programs are quite distinctive with regards to program settings and goals. Consequently, we focused our analyses on short (< 30 days) and long term (> 30 days) treatment programs that were inpatient, partial hospitalization, or intensive outpatient programs. 
+The original TEDS-D dataset included 65 variables and 1,048,575 observations. However, each observation included in this original dataset represented *one hospital discharge*, rather than *one unique patient*. In order to avoid introducing bias into our predictive models via the presence of multiple entries for the same patient, we removed all observations for which the number of prior treatment episodes in a drug or alcohol program was greater than 0. This ensured that each discharge entry and all relevant variables were indeed obtained from a unique patient. We additionally removed all entries wherein the patient was discharged from a 24-hour detoxification service, as detoxification and treatment programs are quite distinctive with regards to program settings and goals. Consequently, we focused our analyses on short (< 30 days) and long term (> 30 days) treatment programs that were inpatient, partial hospitalization, or intensive outpatient programs. 
 
-The application of these exclusion criteria (prior treatment program participation and 24 hour detoxification service) to the original dataset resulted in a subsample of 265,111 eligible observations. 
+Prior to developing statistical models aimed at predicting treatment completion versus non-completion, we additionally removed predictor variables that were redundant or non-variable across entries. 
 
-Prior to developing statistical models aimed at predicting treatment completion versus non-completion, we additionally removed predictor variables that were unique to each patient, redundant, or non-variable across entries. Examples of redundant variables excluded from the dataset include state code, metropolitan area, and census region (redundant with regards to census division) and secondary and tertiary route of drug administration. Predictors that were non-variable across discharge entries and removed from the dataset included year of discharge and number of prior SUD treatment programs participated in. Next, we looked at the number of missing values per each predictor variable and removed those with a large number of missing values (>40 % of entries missing data). The following variables were removed for missing data: number of arrests in 30 days prior to admission, DSM diagnosis, detailed not in labor force status, pregnant at time of admission (yes/no), detailed criminal justice referral, health insurance type, and primary source of treatment program payment. After finalizing the set of predictor variables, we removed any discharge entries that still had missing values for one or more of the predictors. The final cleaned dataset included 42 predictor variables and 70,009 observations.
+* Examples of redundant variables excluded from the dataset include state code, metropolitan area, and census region (redundant with regards to census division) and secondary and tertiary route of drug administration. 
+* Predictors that were non-variable across discharge entries and removed from the dataset included year of discharge and number of prior SUD treatment programs participated in. 
 
-The table below summarizes relevant treatment program information for these 70,009 observations: \newline\newline 
+Next, we looked at the number of missing values per each predictor variable and removed those with a large number of missing values (>40 % of entries missing data). The following variables were removed for missing data: number of arrests in 30 days prior to admission, DSM diagnosis, detailed not in labor force status, pregnant at time of admission (yes/no), detailed criminal justice referral, health insurance type, and primary source of treatment program payment. 
 
-
+After finalizing the set of predictor variables, we removed any discharge entries that still had missing values for one or more of the predictors. The final cleaned dataset included 42 predictor variables and 70,009 observations. The table below summarizes relevant treatment program information for these remaining observations: \newline\newline 
 
 ```{r Treatment Table, echo=F, fig.height = 5, fig.width = 5, fig.align = "center"}
 img1 <-  rasterGrob(as.raster(readPNG("./treatmentInfoPNG.png")), interpolate = FALSE)
@@ -151,7 +145,13 @@ write.csv(x = drugdata.cleaned, file="./TEDS-D_DrugTreatment_Outcomes_Final.csv"
 
 ### Treatment Success Predictors
 
-The following variables were considered potential predictors of treatment completion versus non-completion for all statistical models: age, sex, race, ethnicity, marital status, years of education, employment status, primary source of income, living arrangement, veteran status, census division, service setting at discharge, number of days patient waited before entering treatment program, length of treatment stay, principal source of treatment program referral, primary SUD, primary route of drug administration, frequency of drug use, age of first drug use, number of substances reported at admission, IV drug use reported at admission, prescribed a pharmacological opioid therapy at admission, alcohol/drug substance use type (alcohol only, drugs only, both), and comorbid psychiatric diagnosis (yes/no). The cleaned data additionally included 18 variables pertaining to whether 18 different substances were reported as a substance of use/abuse at admission (i.e. “drug flags” at admission). 
+The following variables were considered potential predictors of treatment completion versus non-completion for all statistical models:
+
+* Demographic information: Age, sex, race, ethnicity, marital status, years of education, employment status, primary source of income, living arrangement, veteran status, census division, 
+* Treatment-related variables: Service setting at discharge, number of days patient waited before entering treatment program, length of treatment stay, principal source of treatment program referral, 
+* Substance-related variables: Primary SUD diagnosis, primary route of drug administration, frequency of drug use, age of first drug use, number of substances reported at admission, IV drug use reported at admission, prescribed a pharmacological opioid therapy at admission, alcohol/drug substance use type (alcohol only, drugs only, both), and comorbid psychiatric diagnosis (yes/no). 
+
+The cleaned data additionally included 18 variables pertaining to whether 18 different substances were reported as a substance of use/abuse at admission (i.e. “drug flags” at admission). 
 
 ```{r Get Cleaned Data, include=FALSE}
 # Read in Cleaned Data
@@ -191,7 +191,7 @@ table(drug.data$LOS)
 
 In order to reduce the number of statistical predictors, increase model degrees of freedom, and better capture variance across individuals in the sample, a logistic principal components analysis (PCA) was performed on the 18 drug flags. This data reduction strategy allowed for the identification of a small number of principal components that maximally captured variance in drug use at admission. 
 
-Logistic PCA solutions with 1-7 principal components were tested, and a 6 principal component solution was chosen; the 6 principal components identified explained 94% of drug flag variable variance. Principal component scores for the 6 components were generated for each observation, and these 6 scores were used as potential model predictors in addition to the 24 variables described above. The R function `logisticPCA` from package `logisticPCA` was used for this analysis.
+Logistic PCA solutions with 1-7 principal components were tested, and a 6 principal component solution was chosen. The 6 principal components identified explained 94% of drug flag variable variance. Principal component scores for the 6 components were generated for each observation, and these 6 scores were used as potential model predictors in addition to the 24 variables described above. The R function `logisticPCA` from package `logisticPCA` was used for this analysis.
 
 ```{r PCA Set Up, include=FALSE}
 # Logistic Principal Component Analysis for Dimensionality Reduction of Drug Admissions Data
@@ -300,7 +300,6 @@ img1 <-  rasterGrob(as.raster(readPNG("./drugInfoPNG.png")), interpolate = FALSE
 grid.arrange(img1, ncol = 1)  
 ```
 
-
 Comorbid drug and alcohol use disorders were quite prevalent, with 40% of the sample reporting combined alcohol and drug SUDs (35% reported only a drug SUD, and 25% only an alcohol SUD). Interestingly, drug and alcohol disorder comorbidity was higher in the group of individuals that did not complete treatment (43% of this subsample had comorbid drug and alcohol SUDs) as compared to those that completed treatment (35% of this subsample had comorbid SUDs), as was the number of substances reported at admission (59% of treatment non-completers were using 2+ drugs, whereas only 45% of treatment completers were). Overall, substance use in this population of individuals seeking treatment appears to be chronic, complex, and highly comorbid, three factors that increase risk of treatment termination or relapse and that make predicting treatment completion critical.  
 
 ## 2.3. Statistical Models
@@ -313,7 +312,7 @@ In order to test the prediction accuracy of each of the statistical models devel
 * Validation data cohort (N= 5,009) 
 * Testing data cohort (N= 20,000)
 
-Each model was trained using the same training data observations, and model classification accuracy was tested on the left out testing data. The smaller validation cohort was used only to tune neural network parameters.
+Each model was trained using the same training data observations, and model classification accuracy was tested on the left out testing data. The smaller validation cohort was used to tune neural network parameters and to report an additional, unbiased testing error for the final model. 
 
 ```{r Train and Test, include=FALSE}
 #Extract training and testing data
@@ -334,12 +333,12 @@ drugdata.test <- drugdata.test[-index.validation,]
 
 #### Regression-based Approaches
 
-**Logistic Regression:**
-A logistic regression model was developed for the prediction of treatment completion versus non-completion. Training data (specifically, all 30 predictors) were used in the estimation of beta coefficients, and the probability of treatment completion was calculated for each patient using the formula: 
+Three types of regression-based approaches were applied in this work. For each regression type, training data were used to fit the model. Misclassification error (MCE), area under the curve (AUC), and Akaike Information Criterion (AIC) were calculated using testing data to assess model performance.
 
+**Full Model Logistic Regression:**
+A logistic regression model was fit with all possible predictors (R function `glm`) for the prediction of treatment completion versus non-completion. Beta coefficients were estimated, and the probability of treatment completion was calculated for each patient using the formula: 
 $$ P(Y=1 | X) = \frac{e^{\beta_0+\beta_1*X1 ... \beta_N*XN}}{1+e^{\beta_0+\beta_1*X1 ... +\beta_N*XN}}$$
-
-Individual probabilities were used to classify patients into completers (1) and non-completers (0) using a binary cut-off threshold probability=0.5. The R function `glm` was used to run logistic regressions. 
+Individual probabilities were used to classify patients into completers (1) and non-completers (0) using a binary cut-off threshold probability=0.5.
 
 ```{r GLM Full Model, include=FALSE}
 # Step 1. Fit a logistic regression with all possible predictors
@@ -354,7 +353,8 @@ testingerror.glm.allpredictors.MCE <- mean(drugdata.test$TREATCOMPLETE != glm.al
 glm.allpredictors.roc <- roc(drugdata.test$TREATCOMPLETE, glm.allpredictors.fittedprobabilities, plot=F) #AUC= 0.756
 ```
 
-In addition, `stepAIC` -- an alternative to `bestglm` for model selection -- was employed to remove least-predictive variables in a methodical way as to increase interpretability of the result. After performing iterative backwards selection, the model stopped when a local minimum AIC is reached. 
+**Logistic Regression with Backwards Selection**
+In an effort to create a more parsimonious and more interpretable model by removing predictors, `stepAIC` -- an alternative to the function `bestglm` for model selection -- was employed perform iterative backwards selection, stopping with a local minimum AIC is reached. The final model included 26 variables. 
 
 ```{r Step AIC, eval=FALSE, include=FALSE}
 # Step 1. Use stepAIC to iteratively delete the factor with lowest AIC
@@ -366,10 +366,13 @@ glm.allpredictors_step = stepAIC(glm.allpredictors, direction = 'backward')
 glm.reduced <- glm(TREATCOMPLETE ~ AGE + GENDER + RACE + ETHNIC + MARSTAT + EDUC + EMPLOY + VET + LIVARAG + PRIMINC + DIVISION + SERVSETD + METHUSE + DAYWAIT + LOS + PSOURCE + SUB1 + FREQ1 + FRSTUSE1 + NUMSUBS + IDU + ALCDRUG + PSYPROB + PC3 + PC4 + PC6, family=binomial, data=drugdata.train)
 Anova(glm.reduced)
 
-save(glm.reduced, file="./Regression_stepAICmodel") # Save out final model
+save(glm.reduced, file="./Regression_stepAICmodel.Rdata") # Save out final model
 ```
 
 ```{r Step AIC prediction, eval=FALSE, include=FALSE}
+
+load("./Regression_stepAICmodel.Rdata")
+
 # Step 3. Get fitted values and classification for testing data
 glm.reduced.fittedprobabilities <- predict(glm.reduced, drugdata.test, type="response")  #Get probabilities
 glm.reduced.classify <- ifelse(glm.reduced.fittedprobabilities > 0.5, "1", "0") #Classify
@@ -380,7 +383,7 @@ glm.reduced.roc <- roc(drugdata.test$TREATCOMPLETE, glm.reduced.fittedprobabilit
 ```
 
 **Penalized Regression:**
-Taking one more parametric, regression-based appraoch, we performed penalized regression. Specifically, we used elastic net regression, which, by adjusting the alpha, combines the shrinkage and sparsity of LASSO with the uniqueness and tolerance of colinearity of ridge regression. In other words, the elastic net penalized regression (`cv.glmnet` function) provides some balance between LASSO and ridge regressions. 
+Finally, we used elastic net regression, which, by adjusting the alpha, combines the shrinkage and sparsity of LASSO with the uniqueness and tolerance of collinearity of ridge regression. In other words, the elastic net penalized regression (`cv.glmnet` function) provides some balance between LASSO and ridge regressions. Our elastic net model was fit with coefficients extracted from both `lambda.min` and `lambda.1se`. Of these, the model with the lowest MCE and highest AUC was selected. This final model included 28 variables. 
 
 ```{r Elastic Net, eval=FALSE, include=FALSE}
 # Use elastic net to find important variables (training data)
@@ -434,24 +437,13 @@ P.Regression.2.roc <- roc(drugdata.test$TREATCOMPLETE, P.Regression.2.fittedprob
 save(P.Regression.2, file="./penalizedRegressionModel.Rdata") # Save out penalized regression model
 ```
 
-
-In considering the balance between MCE and AUC, a logistic regression fit following automated stepwise, backwards tuning of AIC (`stepAIC`) was our best regression-based approach (MCE = 0.308; AUC = 0.756). However, it provided little benefit over regular `glm` or penalized regression (i.e., elastic net). 
-
-Moreover, 20 of the 26 variables included in the model were significant at the p = 0.001 level. While this means that the TEDS-D dataset includes many helpful and informative predictors of treatment success, it also means that the final model is not particularly parsimonious and, therefore, not particularly relevant for informing targeted policy or intervention. Moreover, while the regression-based models are easily implemented and easily interpreted, the assumptions that need to be met for regressions are strong and -- since the true data generating model is unknown -- these assumptions are usually violated. 
-
 #### Random Forest
 
-In considering the limitations of logistic regression, we investigated the potential benefit of data-driven classification with `randomForest`.
+In considering the limitations of logistic regression, we investigated the potential benefit of data-driven classification with the R function `randomForest`.
 
-Specifically, we used the training dataset to grow various numbers of trees in an attempt to best turn the `mtry` parameter (i.e., the number of randomly drawn variables to be assessed while splitting each node) -- testing the widely-accepted $\sqrt{p}$ for classification trees.
+Random forest provides **many layers of randomness** such that each tree is produced from a random sample of cases and split at a random sample of predictors. As such, this partitioning process not only avoids snooping/polluting the data, but also enables a sort of model selection even in instances where p is large. Perhaps more importantly, because different sets of predictors are evaluated for different splits a wide variety of mean functions are evaluated, each potentially constructed from rather different basis functions. This means we get a better fit, a **less restricted approximation of the true response surface**, and, resultantly, a smaller bias. Random forest also incorporates bagging -- the idea that averaging across trees increases stability and that aggregating fitting values across trees makes them more **independent** while simultaneously reducing testing error. 
 
-Random forest has several marked advantages over more "traditional" and more widely-used regression-based methodologies:
-
-* There are **many layers of randomness**. Each tree is produced from a random sample of cases and at each split a random sample of predcitors. As such, the partitioning process not only avoids snooping/poluting the data, but also enables a sort of model selection (even in cases, like ours, where p is large).
-* Also as an effect of this randomness, different sets of predictors are evaulated for different splits such that a wide variety of mean functions are evaulated, each potentially constructed from rather different basis functions. As such, we get a better fit, a **less restricted approximation of the true response surface**, and, resultantly, a smaller bias.
-* Incorporation of bagging-- the idea that averaging across trees increases stability and that aggregating fitting values across trees makes them more independent while simultaneously reducing testing error. 
-* Out of bag (OOB) samples provide, essentially, another set of training/testing data with which to refine and tune a best model.
-* There are additional packages and techniques, like variable importance and partial dependence plots that help us peer into the black box that is the `randomForest` algorithm. 
+Specifically, we used the training dataset to tune both `mtry` and `ntree` parameters, settling on an `mtry` of 5 (approximately equal to the suggested $\sqrt{p}$ for classification trees) and `ntree` of 400. As such, the final random forest model included 400 trees; for which each node was split via one of 5 randomly selected variables. To assess the model's predictive accuracy, not only was OOB error assessed, but probabilities and responses were fitted using the testing data as to most appropriately report MCE and AUC. Sensitivity, specificity, as well as positive and negative prediction error were also assessed. 
 
 ```{r Build RF, eval=FALSE, include=FALSE}
 # Tuning mtry
@@ -501,91 +493,6 @@ confusionMatrix(fit.rf.test.pred.y, drugdata.test$TREATCOMPLETE, positive = "1")
 # Positive Pred: 70%
 # Negative Pred: 78%
 ```
-
-One approach to using `randomForest` to get measures of predictor importance is to record the decrease in the fitting measure (e.g. Gini index; mean squared error) each time a given variable is used to define a split. In this sense, the sum of these reductions for a given tree becomes a measure of the importance of that variable when that tree is grown. In the context of random forest, this measure of variable importance can be averaged over the set of trees. 
-
-In the plots below, reduction in prediction accuracy is shown on the horizontal axis. As such, we can see reductions in prediction accuracy for successful treatment completion (left) and non-successful treatment completion (right) when each predictor is in turn randomly shuffled.
-
-Specifically, we note that factors like `SERVSETD` (service setting at discharge), `PSOURCE` (principal source of referral), `FREQ1` (frequency of use), `PSYCPROB` (psychiatric problems/symptoms/diagnoses), `EMPLOY` (employment status at time of admission), and `PRIMINC` (source of income/support) are most predictive of successful treatment completion. On the other hand, factors such as `SUB1` (substance problem code),`AGE` (age at time of admission), `FRSTUSE1` (age at first substance use), and `DAYWAIT` (days spent waiting for admission) were most predictive of cases where treatment was not completed. 
-
-Critically, two factors `LOS` (length of stay) and `DIVISION` (census division/geographic location) were most predictive of both successful and non-successful treatment completion.
-
-```{r RF Var Importance, echo = FALSE}
-# Variable importance plots
-par(mfrow=c(1,2))
-varImpPlot(fit.rf, type=1, scale=F, class="1",
-           main = "Importance Plot for Treatment Completion",  cex=.65, pch=19, color="springgreen4") 
-varImpPlot(fit.rf, type=1, scale=F, class="0",
-           main = "Importance Plot for Non-Completion", cex=.65, pch=19, color="springgreen4") 
-```
-
-```{r RF Figures, echo=FALSE, fig.height=2.6, fig.width=7}
-# Partial dependence plots
-# LOS:
-partimp1 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=LOS, rug=T, which.class="1", plot=F)
-scatter.smooth(partimp1$x, partimp1$y, span=1/3, xlab= "Length of Stay", ylab= "Log Odds of Completion", main = "Partial Dependence Plot for LOS on Treatment Completion", col = "springgreen4", pch=19, cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-```
-
-```{r echo=FALSE, fig.height=2.6, fig.width=7}
-par(mfrow=c(1,2))
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=DIVISION, rug=T, which.class="1", 
-                        main = "DIVISION and Treatment Completion", 
-                        xlab= "Census Division", ylab= "Log Odds Completion", ylim = c(-0.3, 0.2), cex.main=0.75, cex.lab=0.75, cex.axis=0.75)
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=EMPLOY, rug=T, which.class="1", 
-                        main = "EMPLOY and Treatment Completion", 
-                        xlab= "Employment Status", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2),  cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-
-```
-
-```{r echo=FALSE, fig.height=2.6, fig.width=7}
-par(mfrow=c(1,2))
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=PRIMINC, rug=T, which.class="1", 
-                        main = "PRIMINC and Treatment Completion", 
-                        xlab= "Primary Insurance", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=PSOURCE, rug=T, which.class="1",  
-                        main = "PSOURCE and Treatment Completion",
-                        xlab= "Referral Source", ylab= "Log Odds Completion", ylim = c(-0.2, 0.1), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-```
-
-```{r echo=FALSE, fig.height=2.6, fig.width=7}
-par(mfrow=c(1,2))
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=SUB1, rug=T, which.class="1", main = "SUB1 and Treatment Completion", xlab= "Substance Problem Code",ylab= "Log Odds Completion", ylim = c(-0.1, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=FREQ1, rug=T, which.class="1", 
-                        main = "FREQ1 and Treatment Completion", 
-                        xlab= "Frequency of Use at Admission", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-
-```
-
-
-```{r echo=FALSE, fig.height=2.6, fig.width=7}
-
-par(mfrow=c(1,2))
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=FRSTUSE1, rug=T, which.class="1", 
-                        main = "FRSTUSE1 and Treatment Completion",
-                        xlab= "Age at First Use", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-
-partialPlot(fit.rf, pred.data=drugdata.test, x.var=AGE, rug=T, which.class="1", 
-                        main = "AGE and Treatment Completion",
-                        xlab= "Age at Admission", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
-```
-
-However, looking at predictor importance and distribution has limitations:
-
-* Focusing on reductions in the fitting criteria ignores the prediction skill of the model and fails to tell you anything about how an input is related to the response. 
-* It can also be difficult to translate contributions to a "fit statistic" into terms of practical importance. In other words, asserting that a percentage contribution to a particular fit statistic is a measure of importance is incredibly circular (at best). 
-* Only one variable can be shuffled at a time. There is no role of joint importance over several predictors. This can be particularly detrimental when variables are correlated (i.e. there is a contribution to prediction accuracy that is uniquely linked to each predictor **and** joint contributions shared between two or more predictors).
-
-Critically, despite the flexible way in which `randomForest` and CART algorithms can respond to data, substantial bias is still a real possibility. At the end of the day, the algorithms are trying in a single-minded manner to use associations in the data to maximize the homogeneity of data partitions. How those associations come to be represented have no foundation in subject matter understanding. 
-
-Nonetheless, the model enables data-driven discussions that have the potential to design interventions specific to improving treatment outcomes for patients struggling with SUD. 
-
 
 #### Boosting
 
@@ -753,28 +660,19 @@ importantpredictors.df <- importantpredictors.df %>% rename(Relative_Influence =
 #importantpredictors.df[1:10,]
 ```
 
-```{r Boosting Predictor Plot, echo=FALSE, fig.height=4.7, fig.width=5}
-# BOOSTING PREDICTOR RELATIVE INFLUENCE GRAPH
-plot(varImp(GBM.boosting.model,scale=F, xlab="Variable Importance"), , col="yellow")
-```
-
-**BOOSTING RESULTS**
-
-
 #### Deep Learning (Neural Net)
 
-We also built a deep learning network (also known as a neural network model) to predict whether a patient would complete their treatment program. In this approach, we choose a network structure, which consists of a series of layers. The first layer is the inputs, which are the various predictors we have discussed so far. Because we are trying to classify the patients as either "completed" or "did not complete", the last layer will transform all information into a prediction.
-
+To create a more sophisticated, more complex model allowing for multiple levels of non-linearity, we built a deep learning network (also known as a neural network model). 
 
 ```{r eval=FALSE, fig.align='center', include=FALSE, out.width='40%'}
 knitr::include_graphics(c("./NeuralNetExample.png"))
 ```
 
-In deep learning the layered representations are (almost always) learned via models called *neural networks*.  Each layer in the network consists of a number of individual units, called "neurons". Each neuron has the ability to perform a simple function on its inputs. In a dense layer, all of the input neurons connect to all of the output neurons with certain weights. During the course of training this network model, various parameters are adjusted, including the weights of the connections and the biases (effectively the intercept terms for the linear combinations).
+In deep learning, these layered representations are (almost always) learned via models called *neural networks*. Each layer in the network consists of a number of individual units, called "neurons", and each neuron has the ability to perform a simple function on its inputs. In a dense layer, all of the input neurons connect to all of the output neurons with certain weights. During the course of training this network model, various parameters are adjusted, including the weights of the connections and the biases (effectively the intercept terms for the linear combinations).
 
 Here, we use the package 'keras' to develop the deep learning model. 
 
-We chose to use a network structure that contained layers of varying size, and the "relu" activation function. The "relu" function simply transforms negative values into zeros. In order to avoid overfitting the model, we added dropout layers between the "relu" layers. For the final layer, we chose to use a sigmoid activation function, which transforms the input information into a prediction from 0 to 1. In order to train the model, we chose to use 'rmsprop' as our optimizer logarithm, binary crossentropy as our loss function (which the model will minimize), and the fraction of correctly classified patients as our metric of success. We first tuned the hyperparameters of the model (number of patients trained upon before changing the weights and total number of cycles through the data) by training our model on the training data and "validating" it on the validation data after every parameter change. Even though the training accuracy improves, it is clear that the validation accuracy does not improve after the first 25 iterations. In terms of the batch size, we wanted to train on a large enough set each time that the parameters would be tuned in the right direction. At the same time, having a very large batch size misses the point of dividing the data into batches, which is to avoid getting stuck in local maxima. We decided on a batch size of 200.
+We chose to use a network structure that contained layers of varying size and the "relu" activation function, which transforms negative values into zeros. In order to avoid over-fitting the model, we added dropout layers between the "relu" layers. For the final layer, we chose to use a sigmoid activation function, which transforms the input information into a prediction from 0 to 1. In order to train the model, we chose to use 'rmsprop' as our optimizer logarithm, binary cross-entropy as our loss function (which the model will minimize), and the fraction of correctly classified patients as our metric of success. We first tuned the hyperparameters of the model (number of patients trained upon before changing the weights and total number of cycles through the data) by running our model on the training data and "validating" it on the validation data after every parameter change. In terms of the batch size, we wanted to train on a large enough set each time that the parameters would be tuned in the right direction. At the same time, having a very large batch size misses the point of dividing the data into batches, which is to avoid getting stuck in local maxima. To solve this optimization problem, we decided on a batch size of 200.
 
 ```{r Neural Net Tuning, eval=FALSE, include=FALSE}
 
@@ -813,10 +711,6 @@ neuralnet.tune <- model %>% fit(x_train,
                                 batch_size = 200, 
                                 validation_data = list(x_validate, y_validate)
                                 )
-```
-
-```{r, out.width='55%', echo=FALSE}
-knitr::include_graphics(c("./NN_tuning.png"), dpi = 300)
 ```
 
 ```{r Neural Net, include=FALSE}
@@ -861,17 +755,45 @@ NN_predictions <- predict(object = model, x = as.matrix(x_test)) %>% as.vector()
 NN.roc <- roc(drugdata.test$TREATCOMPLETE, NN_predictions, plot=F) #AUC = 0.75
 ```
 
-After training our model on the training data, we tested it on the testing data we had set aside. Our model was able to correctly classify 68.5% of the data- significantly above average, but certaintly not remarkable. It was trivial to calculate the misclassification error from this result- the model's MCE was 0.315. We also calculated the AUC (area under receiver operator curve), which provides a measure of how well the model can differentiate between patients who completed their sessions and those who did not. We found a AUC of 0.75. 
+# 3. Results & Model Comparisons
 
+## 3.1 Regression-based Approaches
 
-#3. Model Comparisons: AUC
+In considering the balance between MCE and AUC, a logistic regression fit following automated stepwise, backwards tuning of AIC (`stepAIC`) was our best regression-based approach (MCE = 0.308; AUC = 0.756). However, it provided little benefit over regular `glm` or penalized regression (i.e., elastic net). Moreover, 20 of the 26 variables included in the regression-based model were significant at the p = 0.001 level. While this means that the TEDS-D dataset includes many helpful and informative predictors of treatment success, it also means that the final model is not particularly parsimonious and, therefore, not particularly relevant for informing targeted policy or intervention. Furthermore, while the regression-based models are easily implemented and easily interpreted, the assumptions that need to be met for regressions are strong and -- since the true data generating model is unknown -- these assumptions are usually violated. 
 
-```{r PLOT ROCs,fig.height=6, fig.width=9, echo=F}
+## 3.2 Random Forest
+
+Prediction performance was substantially increased with respect to `randomForest`. Not only were we able to reduce MCE from 0.308 to 0.266, but we were also able to increase AUC from 0.756 to 0.812. Of note, the final random forest model was also particularly balanced:
+
+* Sensitivity: 77%; Specificity: 71%; Positive prediction error: 70%; Negative prediction error: 78%
+
+As such, the model bosts rather impressive differentiation between patients who completed their sessions and those who did not.
+
+## 3.3 Boosting 
+
+For our boosting model, despite the expected advantage due to attempts by the boosting process to improve the prediction performance of the previously generated tree, the AUC (0.807) was comparable to (in fact, a little lower than) that of `randomForest`. Of note, both `randomForest` and boosting identified the variables `DIVISION` and `LOS` as most predictive of treatment outcomes. 
+
+```{r Boosting Predictor Plot, echo=FALSE, fig.height=4.7, fig.width=5}
+# BOOSTING PREDICTOR RELATIVE INFLUENCE GRAPH
+plot(varImp(GBM.boosting.model,scale=F, xlab="Variable Importance"), , col="yellow")
+```
+
+## 3.4 Deep learning
+
+As seen in the plot below, our deep learning model revealed a decreasing loss (and ACC) over the selected 25 epochs. 
+
+The was able to correctly classify 68.5% of the data- significantly above average, but certaintly not remarkable. MCE was 0.315 and AUC of 0.75 --  falling below those of both random forest and boosting. 
+
+```{r, out.width='55%', echo=FALSE}
+knitr::include_graphics(c("./NN_Performance.png"), dpi = 300)
+```
+
+```{r PLOT ROCs,fig.height=5, fig.width=8, echo=F}
 par(mfrow=c(1,1))
 plot(1-NN.roc$specificities, NN.roc$sensitivities, col="deepskyblue4", pch=16, cex=0.4, xlab= "False Positives", ylab="Sensitivities", font.lab=2, main="Model Comparisons: ROC Curves", font.main=2,
 text(.75, .2, paste("\nModel 1: Random Forest AUC=", round(pROC::auc(fit.rf.test.roc),3),
   "\nModel 2: Boosting AUC=", round(pROC::auc(gbmboost.roc),3),
-                "\nModel 3: Exhaustive GLM AUC=",round(pROC::auc(glm.allpredictors.roc),3), 
+                "\nModel 3: stepAIC GLM AUC=",round(pROC::auc(glm.allpredictors.roc),3), 
                 "\nModel 4: Neural Net AUC=",round(pROC::auc(NN.roc),3))))
 
 points(1-fit.rf.test.roc$specificities, fit.rf.test.roc$sensitivities, col="springgreen4", pch=16, cex=0.4)
@@ -890,19 +812,176 @@ lines(1-glm.allpredictors.roc$specificities, glm.allpredictors.roc$sensitivities
 lines(1-NN.roc$specificities, NN.roc$sensitivities, lwd=2, col="deepskyblue4")
 ```
 
-#4. Conclusions, Implications, and Limitations
+# 4. Final Model
 
-## Conclusions & Implications
-The TEDS-D captures a significant share of all discharges from treatment facilities across the United States, especially those that reflect public spending.
+Using MCE and AUC as primary model selection criteria (plotted above), we chose random forest as our final model. 
+
+In order to further assess performance of this final model and to get a second, honest/unbiased estimate of testing error, we fit the chosen `mtry` and `ntree` parameters with the reserved validation data. While the MCE for this validation-based fit was comparable to the original model, the AUC actually increased to 0.814 -- confirming the generalizability of the model.
+
+```{r RF validation fit, eval=FALSE, include=FALSE}
+# Growing the forest with optimized parameters
+fit.rf.validate <- randomForest(TREATCOMPLETE ~ ., data = drugdata.validation, mtry = 10, importance = T, ntree=400)
+
+#save(fit.rf, file="./randomForest_model.Rdata") # Save out final model
+save(fit.rf, file="./randomForest_model_validation.Rdata") # Save out final model
+
+# Prediction using validation data
+fit.rf.validate.pred <- predict(fit.rf, newdata=drugdata.validation, type="prob")  # Output the prob of "0" and "1"
+fit.rf.validate.pred.y <- predict(fit.rf, newdata=drugdata.validation, type="response")
+fit.rf.validate.err <- mean(drugdata.validation$TREATCOMPLETE != fit.rf.validate.pred.y) # 0.2641246
+
+fit.rf.validate.roc <- roc(drugdata.validation$TREATCOMPLETE, fit.rf.validate.pred[,2], plot=TRUE, col="red") 
+pROC::auc(fit.rf.validate.roc) # 0.8136 (!!!)
+```
+
+After selecting the desired model we turn to interpreting its results. There are two main tools we will use to understand the model's output: Variable importance plots and partial dependency plots.
+
+## Variable Importance Plots
+
+One approach to using `randomForest` to get measures of predictor importance is to record the decrease in the fitting measure (e.g. Gini index; mean squared error) each time a given variable is used to define a split. In this sense, the sum of these reductions for a given tree becomes a measure of the importance of that variable when that tree is grown. In the context of random forest, this measure of variable importance can be averaged over the set of trees. 
+
+In the plots below, reduction in prediction accuracy is shown on the horizontal axis. As such, we can see reductions in prediction accuracy for successful treatment completion (left) and non-successful treatment completion (right) when each predictor is in turn randomly shuffled. \newline\newline
+
+```{r RF Var Importance, echo = FALSE}
+# Variable importance plots
+par(mfrow=c(1,2))
+varImpPlot(fit.rf, type=1, scale=F, class="1",
+           main = "Importance Plot for Treatment Completion",  cex=.65, pch=19, color="springgreen4") 
+varImpPlot(fit.rf, type=1, scale=F, class="0",
+           main = "Importance Plot for Non-Completion", cex=.65, pch=19, color="springgreen4") 
+```
 
 
-## Limitations
+Specifically, we note that two variables `LOS` (length of stay) and `DIVISION` (census-based geographic logcation) are most predictive of both treatment completion and treatment non-completion. 
+
+Factors like `SERVSETD` (service setting at discharge), `PSOURCE` (principal source of referral), `FREQ1` (frequency of use), `PSYCPROB` (psychiatric problems/symptoms/diagnoses), `EMPLOY` (employment status at time of admission), and `PRIMINC` (source of income/support) are most predictive of successful treatment completion. On the other hand, factors such as `SUB1` (substance problem code),`AGE` (age at time of admission), `FRSTUSE1` (age at first substance use), and `DAYWAIT` (days spent waiting for admission) were most predictive of cases where treatment was not completed. 
+
+## Partial Dependence Plots
+
+For tree-based approaches, these dependence plots show the average relationship between a given input and the response within the fixed, joint distribution of the other inputs. In other words, these plots show how what what the proportion for a particular classification outcome would be for different values of the variable of interest.
+
+Taking this approach for `LOS`, we see that the longer a patient stays in the treatment program, the higher their log odds of completing it becomes. \newline\newline
+
+
+```{r RF Figures, echo=FALSE, fig.height=2.6, fig.width=7}
+# Partial dependence plots
+# LOS:
+partimp1 <- partialPlot(fit.rf, pred.data=drugdata.test, x.var=LOS, rug=T, which.class="1", plot=F)
+scatter.smooth(partimp1$x, partimp1$y, span=1/3, xlab= "Length of Stay", ylab= "Log Odds of Completion", main = "Partial Dependence Plot for LOS on Treatment Completion", col = "springgreen4", pch=19, cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+```
+
+
+For `DIVISION`, we begin to see a clear effect of geographic location. Whereas being in treatment in New England (1), Central North West (4), or South Atlantic (5), seems to correspond to greater log odds of treatment completion for patients, being in treatment in -- for example -- the North East (3) or the Mountains (8) has the opposite effect. Intuitively, this makes sense as we consider factors like the prevalence and concentration of drugs in the North East counteracting treatment seeking and, perhaps, effecting relapse. 
+
+An interesting and intuitive relationship is present for `EMPLOY`, too. Having a full-time job (1) as you enter treatment is associated with increased log odds of completing the program whereas log odds of completion fall for patients who enter unemployed (3) or not in the labor force (4). \newline\newline
+
+
+```{r echo=FALSE, fig.height=2.6, fig.width=7}
+par(mfrow=c(1,2))
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=DIVISION, rug=T, which.class="1", 
+                        main = "DIVISION and Treatment Completion", 
+                        xlab= "Census Division", ylab= "Log Odds Completion", ylim = c(-0.3, 0.2), cex.main=0.75, cex.lab=0.75, cex.axis=0.75)
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=EMPLOY, rug=T, which.class="1", 
+                        main = "EMPLOY and Treatment Completion", 
+                        xlab= "Employment Status", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2),  cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+
+```
+
+
+For `PRIMINC` (primary source of income), we also see the expected relationship -- Patients earning wages/salary (1) having higher log odds of treatment completion whereas log odds are decreased for patients reliant on public assistance (2) or retirement/pension/disability (3). 
+
+In addition to economic support, social networks appear to play a role in treatment completion. Here, we see the effects of `PSOURCE` (principal referral source). Interestingly, patients enrolled by themselves or by one other individual (1), healthcare provider (3) or member of the community (6) have lower log odds of completing. On the otherhand, referrals by drug/alcohol abuse mentors and providers (2), schools (4), employers (5), or the court/criminal justice system (6) have more positive effects. \newline\newline
+
+
+```{r echo=FALSE, fig.height=2.6, fig.width=7}
+par(mfrow=c(1,2))
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=PRIMINC, rug=T, which.class="1", 
+                        main = "PRIMINC and Treatment Completion", 
+                        xlab= "Primary Insurance", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=PSOURCE, rug=T, which.class="1",  
+                        main = "PSOURCE and Treatment Completion",
+                        xlab= "Referral Source", ylab= "Log Odds Completion", ylim = c(-0.2, 0.1), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+```
+
+
+Looking at predictors more directly related to substance use, we see that the drug of choice (`SUB1`) tends to have some effect on treatment outcomes. For example, individuals primarily using drugs like PCP (8), hallucinogens (9), methamphetamine/amphetamine (10/11), benzodiazepines (13), or inhalants (17) have higher log odds of treatment completion. Interestingly, drugs like cocaine (3), marijuana (4), and heroin (5) are associated with lower log odds of success. Perhaps this is due to the greater, more wide-spread availability of drugs like marijuana or cocaine such that participants see less value in sticking out the treatment plan if they know the drug will still be there when they return home.
+
+Relatedly, the frequency of drug use (`FREQ1`) is also tightly related to success/failure of treatment. Specifically, individuals who had no use in the month prior to admission (1) displayed much higher log odds of completion than individuals who came into treatment using 3-6 times in the last week (4) or daily (5). Clinically, this checks out as the more rapidly and more frequently a patient is going through the binge/intoxication, withdrawal/negative affect, anticipation/craving, relapse cycle, the more difficult it become to break free from the chemical imbalanced induced by a hijacking of the brain's dopamine (neurotransmitter) system. \newline\newline
+
+
+```{r echo=FALSE, fig.height=2.6, fig.width=7}
+par(mfrow=c(1,2))
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=SUB1, rug=T, which.class="1", main = "SUB1 and Treatment Completion", xlab= "Substance Problem Code",ylab= "Log Odds Completion", ylim = c(-0.1, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=FREQ1, rug=T, which.class="1", 
+                        main = "FREQ1 and Treatment Completion", 
+                        xlab= "Frequency of Use at Admission", ylab= "Log Odds Completion", ylim = c(-0.2, 0.2), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+
+```
+
+
+Finally, our model suggests clear age-based effects on treatment completion. We can see this on two fronts -- age at first drug use (`FRSTUSE1`) and age at treatment admission (`AGE`). 
+
+We see an obvious relationship between `FRSTUSE1` and treatment success such that the younger an individual was when they began using drugs/alcohol (e.g. 1 --> 11 years old vs. 12 --> 55 and older), the less likely they are to complete the program. This relates back to the progression of addiction as a brain disease. The longer you suffer, the less likely you are to be able to return to self-sufficient, drug-free functioning. 
+
+However, the plot of `AGE` and log odds of treatment completion offers some hope. Here, we see that if a patient seeks treatment at these younger ages, their odds of finishing said treatment are positive. This suggests that it's less of game of age per-say and more dependent on the length of the time window between drug use initiation and treatment seeking. \newline\newline
+
+
+```{r echo=FALSE, fig.height=2.6, fig.width=7}
+
+par(mfrow=c(1,2))
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=FRSTUSE1, rug=T, which.class="1", 
+                        main = "FRSTUSE1 and Treatment Completion",
+                        xlab= "Age at First Use", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+
+partialPlot(fit.rf, pred.data=drugdata.test, x.var=AGE, rug=T, which.class="1", 
+                        main = "AGE and Treatment Completion",
+                        xlab= "Age at Admission", ylab= "Log Odds Completion", ylim = c(-0.1, 0.3), cex.main=0.75,  cex.lab=0.75, cex.axis=0.75)
+```
+
+
+# 5. Conclusions, Implications & Limitations
+
+## 5.1 Conclusions & Implications
+
+TEDS-D captures a significant share of all discharges from treatment facilities across the United States, especially those that reflect public spending. As such, the findings from our model and our analysis are -- to an extent -- generalizable. Given that every dollar spent on substance use disorder treatment saves 4 dollars in health care costs and 7 dollars in criminal justice costs, our analysis has far-reaching public policy and financial implications. 
+
+In considering the results discussed above, targeted intervention should manifest in a few ways. 
+
+First, as we saw through analysis of `LOS` and log odds of treatment completion, just getting people in the door increases their chances of finishing the treatment stent. As such, increasing recruitment should be a top priority. Hiring social workers affiliated with the substance use treatment facilities who comb through the community or serve as supportive points of contact for struggling families would serve as a nice starting point. More importantly, seeing as the longer you spend in the program, the better your outcome, it is absolutely critical that policy targets major insurance companies to force funding of these treatment programs for longer than 2-4 weeks (as is current status).
+
+We also noted a significant effect of geography on treatment completion. In light of diminishing success rates in the North East where the magnitude of the drug problem might be greater, finances and resources should be concentrated around areas like Boston, New York, and Philadelphia. At the same time, finding and infrastructure should be delegated to mountainous regions of the country where treatment completion also suffers -- perhaps because more isolated conditions inhibit treatment opportunities and treatment seeking. 
+
+On top of geography, we noted that employment and economic resources/well-being are particularly predictive of treatment completion outcomes. Since it appears as though having a full-time position and a salary to return to sets one up for a complete recovery, it makes sense to establish funding initiatives or non-profits that work to establish short-term (or, ideally, longer-term) employment opportunities for patients who complete the program. In this sense, not only will the individual's time -- which might have contributed to drug seeking -- be occupied following discharge, but completing the program now has some sort of a financial incentive. One model that has seen tremendous success lately is Durham, North Carolina's Triangle Residential Options for Substance Abusers (TROSA). This organization contracts out its members to moving companies, thrift stores, etc. not only to subsidize the cost of their treatment, but also with the idea that -- following program completion -- they have a resume and a chance at future, stable employment opportunities. A model like this is certainly extendable to the North East. 
+
+Additionally, since log odds were particularly low among individuals receiving disability/pensions, perhaps requiring a drug screening or a drug-based online course prior to receiving that money could be helpful in targeting that specific demographic.  
+
+Another critical aspect of the economic side to substance use and abuse is self-medication. It's well-known that there is substantial comorbidity between SUDs and other psychiatric disorders among children and, in particular, adolescents. In our sample alone, having a psychiatric diagnosis was the 6th most predictive factor relative to treatment completion. If one's mental health situation is unstable and the economic situation is unfavorable, it might be easier and more affordable to borrow medication from a friend compared to making a doctors appointment and filling a prescription. 
+
+* Prevalence of PSYCH symptoms in this population 
+* Idea of exogenous DA fixing dysfunctions (like ADHD) that might be DA-based
+* Homelessness -- untreated medical conditions
+
+Last but not least, policy informed by our model and our analysis should continue to support and to target interventions through the avenues we know to be working: employers, the courts/criminal justice system, drug/alcohol abuse mentors, and -- in particular --schools. Since we know patients in their teens and early twenties to have the lowest log odds of treatment completion, but, at the same time, to be among the most amenable to positive treatment outcomes if admitted early, publicizing and de-stagmatizing these programs is a necessity.
+
+
+## 5.2 Limitations
 Although the study utilized a large, geographically diverse administrative dataset of annual discharges, it has several limitations. 
 
-* Facility-level characteristics, such as type of ownership (i.e. public or privitized), size of the facility, patient-to-provider ratio, service offerings, and other characteristics can play an important role in influencing treatment completion (Arndt et al., 2013). However, these facility-level variables were not available in the TEDS-D and, therefore, were not included in our analysis. 
-* **Do we want to say the thing about this being encounters and not patients?**
-* Error associated with self-report cannot be accounted for in the dataset. There is no real incentive for patients to be transparent or forthcoming with respect to the drugs/substances playing a role in their admission, the frequency of their substance use, etc. In this sense, our analysis hinges on highly-personal information that, in many cases, cannot be verified. 
-* All data included in this analysis came from 2006. The accuracy and fluctuation of substance use and abstinence data would be more appropriately and more fully captured by long-term/longitudinal reports extending far beyond the treatment milieu. 
+Facility-level characteristics, such as type of ownership (i.e. public or privatized), size of the facility, patient-to-provider ratio, service offerings, and other characteristics can play an important role in influencing treatment completion (Arndt et al., 2013). However, these facility-level variables were not available in the TEDS-D and, therefore, were not included in our analysis. 
 
-Nonetheless, this analysis of factors associated with treatment completion establishes an association between... It paves the way for future research needed to inform specific interventions and policy and payment designs that will be most effective in encouraging treatment completion for substance use disorder. 
+Error associated with self-report cannot be accounted for in the dataset. There is no real incentive for patients to be transparent or forthcoming with respect to the drugs/substances playing a role in their admission, the frequency of their substance use, etc. In this sense, our analysis hinges on highly-personal information that, in many cases, cannot be verified. 
 
+All data included in this analysis came from 2006. The accuracy and fluctuation of substance use and abstinence data would be more appropriately and more fully captured by long-term/longitudinal reports extending far beyond the treatment milieu. 
+
+Critically, despite the flexible way in which our final model (`randomForest`) and associated `CART` algorithms can respond to data, substantial bias is still a real possibility. At the end of the day, the algorithms are trying in a single-minded manner to use associations in the data to maximize the homogeneity of data partitions. How those associations come to be represented have no foundation in subject matter understanding. While it is possible to peer into the black box, no matter how much information you can extract, `randomForest` remains a prediction tool and not a descriptive tool. Moreover, portions of our analysis rely on variable importance plots in which only one variable can be shuffled at a time. As a result, there is no consideration of joint importance over several predictors. This can be particularly detrimental when variables are correlated (i.e. there is a contribution to prediction accuracy that is uniquely linked to each predictor **and** joint contributions shared between two or more predictors).
+
+Finally, in 2006 the main drugs of use/abuse were alcohol, cannabis, and cocaine. This is in stark contrast to where we stand today admits our nation's largest opioid epidemic. In recognizing that the number of patients entering substance use disorder treatment programs for opioid-related addiction, it is both possible and likely that predictors of treatment completion may be different among this population. As a result, it is difficult -- if not impossible-- to extend or predict the performance of our model relative to this change in substance use patterns.
+
+Nonetheless, our final model enables data-driven discussions that have the potential to design interventions specific to improving treatment outcomes for patients struggling with SUD. It, combined with our overarching and well-supported analysis, paves the way for future research needed to inform specific interventions and policy designs that will be most effective in encouraging treatment completion for SUD. 
